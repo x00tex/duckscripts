@@ -1,5 +1,17 @@
 #!/bin/bash
 
+#############################################################################################################
+#                                                                                                           #
+# Author: poorduck                                                                                          #
+# Date: 2023-05-26                                                                                          #
+# Description: Bash script for subdomain enumeration using variety of tools -                               #
+#                 chaosDB, Findomain, Subfinder, Amass, gitlab-subdomains, shuffledns, jldc.me, dnsx, httpx #
+#                                                                                                           #
+# Usage: bash subzeroV1.sh -h                                                                               #
+#                                                                                                           #
+#############################################################################################################
+
+
 setup() {
   sudo apt install curl wget jq amass lolcat figlet golang
   sudo wget https://raw.githubusercontent.com/janmasarik/resolvers/master/resolvers.txt -O /usr/share/wordlists/subzero-resolvers.txt
@@ -21,7 +33,7 @@ usage() {
   echo "Options:"
   echo "  -d DOMAIN [REQUIRED]          Target domain OR list of domains"
   echo "  -o ORG [REQUIRED]             Target organization name"
-  echo "  -l wordlists                  Custom wordlist of subdomain Bruteforce"
+  echo "  -w wordlists                  Custom wordlist of subdomain Bruteforce"
   echo "  -a ASN                        ASN number"
   echo "  -p                            Run httpx probe over found subdomains"
   echo "  -s                            setup require tools for the script"
@@ -41,7 +53,7 @@ while getopts ":d:o:l:a:hp" opt; do
     o)
       orgName="${OPTARG}"
       ;;
-    l)
+    w)
       sublist="${OPTARG}"
       ;;
     a)
@@ -94,6 +106,8 @@ subDomains() {
   local virustotal=""
   local securitytrails=""
   local gitlab=""
+  
+  local dnsResolver="/usr/share/wordlists/subzero-resolvers.txt"
 
   printf "${green}[+] chaosDB${nc}\n"
   # ChaosDB - https://chaos.projectdiscovery.io/
@@ -154,7 +168,7 @@ subDomains() {
   if [ -n "$sublist" ]; then
     printf "${green}[+] shuffledns${nc}\n"
     # shuffledns - https://github.com/projectdiscovery/shuffledns
-    shuffledns -d $domainName -w $sublist -r /usr/share/wordlists/subzero-resolvers.txt -o shuffledns-output.txt -silent 1>/dev/null
+    shuffledns -d $domainName -w $sublist -r $dnsResolver -o shuffledns-output.txt -silent 1>/dev/null
   fi
 
   printf "${green}[+] jldc.me${nc}\n"
@@ -176,7 +190,7 @@ subDomains() {
 
   if [ "$httpxProbe" ]; then
     printf "${green}[!] Running httpx probe...${nc}\n"
-    httpx -r /usr/share/wordlists/subzero-resolvers.txt -o "$fn-httpx.txt" -l "$fn.txt" -silent 1>/dev/null
+    httpx -r $dnsResolver -o "$fn-httpx.txt" -l "$fn.txt" -silent 1>/dev/null
   fi
   
   wc -l $fn*.txt

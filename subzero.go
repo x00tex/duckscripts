@@ -1,5 +1,15 @@
 package main
 
+/*
+
+Author: poorduck
+Date: 2023-05-26
+Description: Golang implementation of "subzeroV1.sh" script.
+
+Usage: go run subzero.go -h
+
+*/
+
 import (
 	"archive/zip"
 	"bufio"
@@ -45,7 +55,7 @@ func main() {
   ___ _   _| |__   / / ___ _ __ ___  
  / __| | | | '_ \ / / / _ \ '__/ _ \ 
  \__ \ |_| | |_) / /_|  __/ | | (_) |
- |___/\__,_|_.__/_____\___|_|  \___/  v0.0.1-Alpha
+ |___/\__,_|_.__/_____\___|_|  \___/  v0.0.2-Beta
 
                             @p00rduck
 `)
