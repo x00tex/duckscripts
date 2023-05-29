@@ -2,7 +2,7 @@ package main
 
 /*
 
-Author: poorduck
+Author: @p00rduck
 Date: 2023-05-26
 Description: Golang implementation of "subzeroV1.sh" script.
 

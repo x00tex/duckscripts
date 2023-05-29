@@ -2,7 +2,7 @@
 
 #############################################################################################################
 #                                                                                                           #
-# Author: poorduck                                                                                          #
+# Author: @p00rduck                                                                                         #
 # Date: 2023-05-26                                                                                          #
 # Description: Bash script for subdomain enumeration using variety of tools -                               #
 #                 chaosDB, Findomain, Subfinder, Amass, gitlab-subdomains, shuffledns, jldc.me, dnsx, httpx #
