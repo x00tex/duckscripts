@@ -1,18 +1,18 @@
 #!/bin/sh
 
 #####################################################################################################
-#																									#
-# Author :- @PofMagicfingers																		#
-# Source :- https://gist.github.com/PofMagicfingers/1876d10935dd88ef866767cef44c140f				#
-# Modified By :- @p00rduck																			#
+#                                                                                                   #
+# Author :- @PofMagicfingers                                                                        #
+# Source :- https://gist.github.com/PofMagicfingers/1876d10935dd88ef866767cef44c140f                #
+# Modified By :- @p00rduck                                                                          #
 # Date: 2023-05-28                                                                                  #
-# Description :- Script for enabling "AndroidManifest.xml" based "debuggable" flag in signed apk.	#
-# Environment Used :- Genymotion 3.3.2 ROOTED, Android 8.1 API 27									#
-#																									#
-# Solution for error while installing - "INSTALL_FAILED_VERIFICATION_FAILURE"						#
-# $ adb shell settings put global verifier_verify_adb_installs 0									#
-# $ adb shell settings put global package_verifier_enable 0											#
-#																									#
+# Description :- Script for enabling "AndroidManifest.xml" based "debuggable" flag in signed apk.   #
+# Environment Used :- Genymotion 3.3.2 ROOTED, Android 8.1 API 27                                   #
+#                                                                                                   #
+# Solution for error while installing - "INSTALL_FAILED_VERIFICATION_FAILURE"                       #
+# $ adb shell settings put global verifier_verify_adb_installs 0                                    #
+# $ adb shell settings put global package_verifier_enable 0                                         #
+#                                                                                                   #
 #####################################################################################################
 
 
