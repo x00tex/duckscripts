@@ -113,6 +113,14 @@ func main() {
 		fmt.Println("Success!")
 		fmt.Println("======")
 		fmt.Println("(deleting temporary directory...)")
+
+		if err := os.RemoveAll(tmpDir); err != nil {
+			fmt.Println("=====")
+			fmt.Println("Something failed :'(")
+			fmt.Printf("Leaving temporary dir %s if you want to inspect what went wrong.\n", tmpDir)
+			log.Fatal(err)
+		}
+
 		fmt.Println("Your debug APK: ", debugAPK)
 	} else {
 		fmt.Println("File not found: ", apk)
