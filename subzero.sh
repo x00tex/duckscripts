@@ -4,10 +4,11 @@
 #                                                                                                           #
 # Author: @p00rduck                                                                                         #
 # Date: 2023-05-26                                                                                          #
+# Version: v0.0.1-Alpha                                                                                     #
 # Description: Bash script for subdomain enumeration using variety of tools -                               #
 #                 chaosDB, Findomain, Subfinder, Amass, gitlab-subdomains, shuffledns, jldc.me, dnsx, httpx #
 #                                                                                                           #
-# Usage: bash subzeroV1.sh -h                                                                               #
+# Usage: bash subzero.sh -h                                                                                 #
 #                                                                                                           #
 #############################################################################################################
 
@@ -113,7 +114,7 @@ subDomains() {
   # ChaosDB - https://chaos.projectdiscovery.io/
   chaosDB=$(curl -s https://chaos-data.projectdiscovery.io/index.json | jq -r --arg search "$(echo $orgName | tr '[:upper:]' '[:lower:]').zip" '.[] | select((tostring | ascii_downcase) | contains($search | ascii_downcase)) | .URL')
   if [ "$chaosDB" ]; then
-    wget -q $chaosDB && mkdir chaos.temp && unzip -qq *.zip -d chaos.temp
+    wget -q $chaosDB --timeout 10 && mkdir chaos.temp && unzip -qq *.zip -d chaos.temp
     cat chaos.temp/$domainName.txt | tee chaosdb-output.txt 1>/dev/null
 
     printf "${green}[!] Other root domains in chaosDB${nc}\n"

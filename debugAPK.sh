@@ -6,6 +6,7 @@
 # Source :- https://gist.github.com/PofMagicfingers/1876d10935dd88ef866767cef44c140f                #
 # Modified By :- @p00rduck                                                                          #
 # Date: 2023-05-28                                                                                  #
+# Version: v0.0.2-Alpha                                                                             #
 # Description :- Script for enabling "AndroidManifest.xml" based "debuggable" flag in signed apk.   #
 # Environment Used :- Genymotion 3.3.2 ROOTED, Android 8.1 API 27                                   #
 #                                                                                                   #
@@ -17,26 +18,24 @@
 
 
 if [ $# -eq 0 ]; then
-  echo "Usage: $0 [APK_FILE]"
+  echo "Usage: $0 <APK_FILE> [APKTOOL_JAR]"
   exit 0
 fi
 
 APK=$1
 APKTOOL="apktool"
-required_version="2.5.0"
 installed_version=$($APKTOOL --version 2>/dev/null | awk '{print $1}')
 
-# Newer version of "apktool" is not working while repacking - "ERROR: brut.androlib.AndrolibException: brut.common.BrutException: could not exec (exit code = 1)"
-# To fix this i used "apktool_2.5.0.jar" which is working at the time i am writing.
-if [ "$installed_version" != "$required_version" ]; then
-    if [ -f "apktool_2.5.0.jar" ]; then
-        echo "Found apktool_2.5.0.jar file in the current directory. Proceeding..."
-        APKTOOL="java -jar apktool_2.5.0.jar"
-    else
-		# wget https://github.com/iBotPeaches/Apktool/releases/download/v2.5.0/apktool_2.5.0.jar
-   		echo "I require apktool version $required_version but found version $installed_version. Aborting."
-    	exit 1
-    fi
+# For "ERROR: brut.androlib.AndrolibException: brut.common.BrutException: could not exec (exit code = 1)",
+# Try different versions of apktool jar from github.
+if [ -n "$2" ] && [ -f "$2" ]; then
+    echo "Using custom apktool jar: $2"
+    APKTOOL="java -jar $2"
+elif [ "$installed_version" != "" ]; then
+    echo "Using installed version of apktool: $installed_version"
+else
+    echo "APKTOOL is not installed. Please install APKTOOL and try again."
+    exit 1
 fi
 
 command -v keytool >/dev/null 2>&1 || { echo >&2 "I require keytool but it's not installed. Aborting."; exit 1; }
@@ -72,5 +71,3 @@ if [ -f $APK ]; then
 else
 	echo "File not found: $APK"
 fi
-
-

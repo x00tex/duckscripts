@@ -4,7 +4,8 @@ package main
 
 Author: @p00rduck
 Date: 2023-05-26
-Description: Golang implementation of "subzeroV1.sh" script.
+Version: v0.0.2-Beta
+Description: Golang implementation of "subzero.sh" bash script.
 
 Usage: go run subzero.go -h
 
@@ -231,12 +232,19 @@ func subDomains(domainName string, orgName string) {
 
 	// Scrapping chaosDB :TEST-OK:
 	fmt.Printf("\033[0;32m[+] chaosDB\033[0m\n")
+
+	client := &http.Client{
+		Timeout: 1 * time.Second,
+	}
+
 	url := fmt.Sprintf("https://chaos-data.projectdiscovery.io/index.json")
-	response, err := http.Get(url)
+	response, err := client.Get(url)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer response.Body.Close()
+
+	// Read the response body
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Fatal(err)
@@ -257,7 +265,6 @@ func subDomains(domainName string, orgName string) {
 
 	if chaosDB != "" {
 		downloadURL := fmt.Sprintf("%s/%s", "https://chaos-data.projectdiscovery.io", chaosDB)
-		client := &http.Client{}
 
 		req, err := http.NewRequest("GET", downloadURL, nil)
 		if err != nil {
@@ -410,13 +417,13 @@ func subDomains(domainName string, orgName string) {
 		log.Fatal(err)
 	}
 
-	// Running shuffledns Command :TEST-PENDING:
+	// Running shuffledns Command :TEST-OK:
 	if sublist != "" {
 		fmt.Printf("\033[0;32m[+] shuffledns\033[0m\n")
 		RunCommand(false, "shuffledns", "-d", domainName, "-w", sublist, "-r", "/usr/share/wordlists/subzero-resolvers.txt", "-o", "shuffledns-output.txt", "-silent")
 	}
 
-	// Running dnsx Command :TEST-PENDING:
+	// Running dnsx Command :TEST-OK:
 	if asn != "" {
 		asnList := strings.Split(asn, ",")
 		for _, n := range asnList {

@@ -4,7 +4,8 @@ package main
 
 Author: @p00rduck
 Date: 2023-05-29
-Description: Golang implementation of "debugAPKv1.sh" script.
+Version: v0.0.1-Beta
+Description: Golang implementation of "debugAPK.sh" script.
 
 Usage: go run debugAPK.go [APK_FILE]
 
