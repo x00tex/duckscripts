@@ -101,7 +101,7 @@ def main():
     base_url = "https://apkpure.com"
     package_name = args.p
 
-    console.log("[bold green]Target APK - " + package_name + "[/bold green]")
+    console.print("[bold green][+] Target APK - " + package_name + "[/bold green]")
     package_uri = ""
     
     max_retries = 5  # Maximum number of retries
@@ -127,6 +127,10 @@ def main():
 
             if element is not None:
                 package_uri = element['href']
+                if package_name not in package_uri:
+                    console.print("[bold red][-] Package Not Found![/bold red]")
+                    exit(2)
+
                 print("[+] Found package -", package_uri)
                 break
 
@@ -183,7 +187,7 @@ def main():
             print("... Promise!")
             executor.shutdown(cancel_futures=True)
 
-    console.log("[bold green]Done![/bold green]")
+    console.print("[bold green][+] Done![/bold green]")
 
 
 if __name__ == "__main__":

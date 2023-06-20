@@ -234,7 +234,7 @@ func subDomains(domainName string, orgName string) {
 	fmt.Printf("\033[0;32m[+] chaosDB\033[0m\n")
 
 	client := &http.Client{
-		Timeout: 1 * time.Second,
+		Timeout: 10 * time.Second,
 	}
 
 	url := fmt.Sprintf("https://chaos-data.projectdiscovery.io/index.json")

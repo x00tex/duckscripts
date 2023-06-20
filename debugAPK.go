@@ -4,7 +4,7 @@ package main
 
 Author: @p00rduck
 Date: 2023-05-29
-Version: v0.0.1-Beta
+Version: v0.0.2-Beta
 Description: Golang implementation of "debugAPK.sh" script.
 
 Usage: go run debugAPK.go [APK_FILE]
@@ -25,33 +25,36 @@ import (
 
 func main() {
 	if len(os.Args) == 1 {
-		fmt.Println("Usage: go run main.go [APK_FILE]")
+		fmt.Println("Usage: go run main.go <APK_FILE> [APKTOOL_JAR]")
 		return
 	}
 
 	apk := os.Args[1]
 	apktool := "apktool"
 	apktoolArgs := []string{}
-	debugFlag := false
-	if len(os.Args) >= 3 && os.Args[2] == "debug" {
-		debugFlag = true
-	}
-	requiredVersion := "2.5.0"
+	debugFlag := false // buggy
+	// if len(os.Args) >= 3 && os.Args[2] == "debug" {
+	// 	debugFlag = true
+	// }
+
 	installedVersion, err := getInstalledVersion(apktool)
 	if err != nil {
 		log.Fatal("Failed to check installed apktool version: ", err)
 	}
 
-	if installedVersion != requiredVersion {
-		apktoolJar := filepath.Join(".", "apktool_2.5.0.jar")
-		if _, err := os.Stat(apktoolJar); err == nil {
-			fmt.Println("Found apktool_2.5.0.jar file in the current directory. Proceeding...")
-			apktool = "java"
-			apktoolArgs = append(apktoolArgs, "-jar", apktoolJar)
-		} else {
-			fmt.Printf("I require apktool version %s but found version %s. Aborting.\n", requiredVersion, installedVersion)
-			return
-		}
+	installedVersionStr := strings.Fields(string(installedVersion))[0]
+
+	// For "ERROR: brut.androlib.AndrolibException: brut.common.BrutException: could not exec (exit code = 1)",
+	// Try different versions of apktool jar from github.
+	if len(os.Args) > 2 && fileExists(os.Args[2]) {
+		fmt.Println("Using custom apktool jar:", os.Args[2])
+		apktool = "java"
+		apktoolArgs = append(apktoolArgs, "-jar", os.Args[2])
+	} else if installedVersionStr != "" {
+		fmt.Println("Using installed version of apktool:", installedVersionStr)
+	} else {
+		fmt.Println("APKTOOL is not installed. Please install APKTOOL and try again.")
+		os.Exit(1)
 	}
 
 	if _, err := exec.LookPath("keytool"); err != nil {
@@ -128,17 +131,24 @@ func main() {
 	}
 }
 
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 func processCMD(cmd *exec.Cmd, debugFlag bool) error {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
+
+	if debugFlag {
+		fmt.Println("Command output:\n", stdout.String())
+		fmt.Println("Command error:\n", stderr.String())
+	}
+
 	if err != nil {
-		if debugFlag {
-			fmt.Println("Command output:\n", stdout.String())
-			fmt.Println("Command error:\n", stderr.String())
-		}
 		return err
 	}
 	return nil
