@@ -2,15 +2,17 @@
 
 """
 Author :- @p00rduck (poorduck)
-Date :- 2023-06-10
-Version: v0.0.1
-Description :- In the current state this script can download older versions of an app available on 'apkpure.com' (Not including the latest version available on apkpure.com)
+Date :- 2023-06-20
+Version: v0.0.1-Alpha
+Description :- Download android apks files from apkpure and and run through apileaks.
 
 Requirements :-
 
-beautifulsoup4==4.12.2
-cfscrape==2.1.1
-rich==13.4.1
+    beautifulsoup4==4.12.2
+    cfscrape==2.1.1
+    rich==13.4.1
+    apkleaks==2.6.1
+    python-magic==0.4.27
 
 Known error and possible fixes :-
 
@@ -18,7 +20,16 @@ Known error and possible fixes :-
 
     pip install 'urllib3<2'  
 
+Quality checks :-
+
+- Suppress jadx output from "apkleaks==2.6.1" while it is decompile().
+  - find "/apkleaks/apkleaks.py" location
+    - Try this command - python -c "import site, sys; print('\n'.join(p for p in sys.path if p.endswith('site-packages')))"
+  - Import "subprocess" in /apkleaks/apkleaks.py, and
+  - Replace "os.system(comm)" in decompile() function with "subprocess.call(f"{comm} > /dev/null 2>&1", shell=True)".
+
 """
+
 
 import argparse
 import os
@@ -27,6 +38,83 @@ from time import sleep
 from rich.console import Console
 import concurrent.futures
 import cfscrape  # https://github.com/Anorov/cloudflare-scrape
+import argparse
+from apkleaks.apkleaks import APKLeaks
+import magic
+import zipfile
+import tempfile
+import sys
+from io import StringIO
+
+
+class APKLeaksRunner:
+    def __init__(self, subArgs):
+        self.args = subArgs
+        self.init = None
+
+    def _run(self, inputarg, outputarg):
+        self.args.file = inputarg
+        self.args.output = outputarg
+        self.init = APKLeaks(self.args)
+
+        try:
+            # "/dev/null" for stdout and stderr
+            dummy_stream = StringIO()  # Create a dummy file-like object to redirect stdout and stderr
+            # Redirect to the dummy object
+            sys.stdout = dummy_stream
+            sys.stderr = dummy_stream
+
+            self.init.integrity()
+            self.init.decompile()
+            self.init.scanning()
+        finally:
+            self.init.cleanup()
+
+            # Restore to its original value
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
+
+    def apkleaks(self, apk, ftype):
+                output_file = apk + "-apkleaks.txt"
+
+                if "Zip archive data" in ftype:
+                    with tempfile.TemporaryDirectory() as temp_dir:
+
+                        # Extract APK files form XAPK.
+                        with zipfile.ZipFile(apk, 'r') as zip_ref:
+                            for file_info in zip_ref.infolist():
+                                if file_info.filename.endswith(".apk"):
+                                    zip_ref.extract(file_info, temp_dir)
+
+                        # Running APKLeaks on all APK files
+                        extracted_files = os.listdir(temp_dir)
+                        for file_name in extracted_files:
+                            file_path = os.path.join(temp_dir, file_name)
+                            apkLeakOut = file_path + "-apkleaks.txt"
+                            try:
+                                self._run(inputarg=file_path, outputarg=apkLeakOut)
+                            except Exception as e:
+                                pass
+
+                        # Save all APK files output in one file.
+                        apkleaksout_files = os.listdir(temp_dir)
+                        with open(output_file, "w") as output:
+                            for file_name in apkleaksout_files:
+                                if file_name.endswith("-apkleaks.txt"):
+                                    file_path = os.path.join(temp_dir, file_name)
+                                    with open(file_path, "r") as file:
+                                        content = file.read()
+
+                                    output.write(f"--- {file_name} ---\n")
+                                    output.write(content)
+                                    output.write("\n\n")
+
+                else:
+                    try:
+                        self._run(inputarg=apk, outputarg=output_file)
+                    except Exception as e:
+                        pass
+
 
 def extract_download_links(url, package_uri, package_name):
 
@@ -91,12 +179,22 @@ def extract_download_links(url, package_uri, package_name):
 
 
 def main():
-    
+
     # Parse required argument(s) for the script.
     parser = argparse.ArgumentParser(description='Download all versions of an Android mobile application from apkpure.com')
     required = parser.add_argument_group('required arguments')
     required.add_argument('-p', required=True, metavar="packagename", help="example: com.twitter.android")
     parser.add_argument('-nd', action='store_false', default=True, help="Disable downloading, only extract download links.")
+
+    subparsers = parser.add_subparsers(dest='tool', metavar='OPTION', help='Choose the analysis tool ["apkleaks"]')
+
+    apkleaks_parser = subparsers.add_parser('apkleaks', help='Run APKLeaks tool')
+    apkleaks_parser.add_argument("-f", "--file", type=str, required=False, help=argparse.SUPPRESS)
+    apkleaks_parser.add_argument("-o", "--output", type=str, required=False, help=argparse.SUPPRESS)
+    apkleaks_parser.add_argument("-p", "--pattern", help="Path to custom patterns JSON", type=str, required=False)
+    apkleaks_parser.add_argument("-a", "--args", help="Disassembler arguments (e.g. \"--threads-count 5 --deobf\")", type=str, required=False)
+    apkleaks_parser.add_argument("--json", help="Save as JSON format", required=False, action="store_true")
+
     args = parser.parse_args()
 
     # Init cloudflare scrapper.
@@ -148,9 +246,7 @@ def main():
         else:
             print("Package not found!")
             return
-        
-    
-    links = extract_download_links(url=base_url, package_uri=package_uri, package_name=package_name)
+
 
     def _download_apk(url):
 
@@ -174,33 +270,45 @@ def main():
             console.print("[yellow]... " + filename + " is already exists.[/yellow]")
             return False
 
-        print("... " + filename + " is downloading, please wait...")
-        file = scraper.get(url)
-        open(absoluteFile, "wb").write(file.content)
+        with console.status("[bold green]Working on it...") as status:
+            print("... " + filename + " is downloading, please wait...")
+            file = scraper.get(url)
+            open(absoluteFile, "wb").write(file.content)
+            
+            file_type = magic.from_file(absoluteFile)
+
+            if args.tool == 'apkleaks':
+                console.log("[yellow]APKLeaks :-[/yellow]", filename)
+                apkleaksrunner = APKLeaksRunner(subArgs=args)
+                apkleaksrunner.apkleaks(apk=absoluteFile, ftype=file_type)
 
         return True
 
-    num_threads = 4  # Adjust this value based on the desired number of parallel downloads
+    links = extract_download_links(url=base_url, package_uri=package_uri, package_name=package_name)
+
+    # DO NOT CHANGE THE VALUE IF YOU WANT TO RUN APKLEAKS.
+    num_threads = 1  # Adjust this value based on the desired number of parallel downloads
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=num_threads)
 
     if args.nd:
         try:
-            with console.status("[bold green]Working on it...") as status:
-                download_tasks = [executor.submit(_download_apk, link) for link in links if link is not None]
-                concurrent.futures.wait(download_tasks)
-                any_file_downloaded = False
-                for task in concurrent.futures.as_completed(download_tasks):
-                    if task.result():
-                        any_file_downloaded = True
+            download_tasks = [executor.submit(_download_apk, link) for link in links if link is not None]
+            concurrent.futures.wait(download_tasks)
+            any_file_downloaded = False
+            for task in concurrent.futures.as_completed(download_tasks):
+                if task.result():
+                    any_file_downloaded = True
 
-                if not any_file_downloaded:
-                    print("[!] Nothing new!")
+            if not any_file_downloaded:
+                print("[!] Nothing new!")
 
         except KeyboardInterrupt:
-            print("[!] Keyboard interruption detected. we'll shutdown execution after running threads are finished.")
+            print("\n[!] Keyboard interruption detected. we'll shutdown execution after running threads are finished.")
             sleep(2)
             print("... Promise!")
             executor.shutdown(cancel_futures=True)
+        except Exception as e:
+            exit(e)
 
     console.print("[bold green][+] Done![/bold green]")
 
