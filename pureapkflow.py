@@ -4,7 +4,7 @@
 Author :- @p00rduck (poorduck)
 Date :- 2023-06-20
 Version: v0.0.1-Alpha
-Description :- Download android apks files from apkpure and and run through apileaks.
+Description :- Download android apks from apkpure and and run through apileaks.
 
 Requirements :-
 
@@ -20,7 +20,7 @@ Known error and possible fixes :-
 
     pip install 'urllib3<2'  
 
-Quality checks :-
+Quality Tweaks :-
 
 - Suppress jadx output from "apkleaks==2.6.1" while it is decompile().
   - find "/apkleaks/apkleaks.py" location

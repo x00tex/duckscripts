@@ -3,91 +3,69 @@
 """
 Author :- @p00rduck (poorduck)
 Date :- 2023-06-10
-Version: v0.0.1
-Description :- In the current state this script can download older versions of an app available on 'apkpure.com' (Not including the latest version available on apkpure.com)
+Update :- 2023-06-23
+Version: v0.0.2
+Description :- Multi threaded android application downloader from apkpure.com.
 
 Requirements :-
-
-beautifulsoup4==4.12.2
-cfscrape==2.1.1
-rich==13.4.1
-
-Known error and possible fixes :-
-
-- ImportError: cannot import name 'DEFAULT_CIPHERS' from 'urllib3.util.ssl_'
-
-    pip install 'urllib3<2'  
-
+    rich==13.4.1
 """
 
 import argparse
 import os
-from bs4 import BeautifulSoup
-from time import sleep
+from time import sleep as wait
 from rich.console import Console
 import concurrent.futures
-import cfscrape  # https://github.com/Anorov/cloudflare-scrape
+import requests
+import json
 
-def extract_download_links(url, package_uri, package_name):
 
-    global scraper, console
+def apkpureAPIScrapper(url, package_name):
 
-    ver_download_urls = []
-    filename = package_name + "-downloads.txt"
+    global console, apiScrapper, downloadLinksJSON
 
-    if os.path.exists(filename):
-        print("[+] Download links file already exists.")
-        with open(filename, 'r') as fr:
-            ver_download_urls = fr.read().split('\n')
-        return ver_download_urls
+    headers = {
+    "User-Agent-Webview": "Mozilla/5.0 (Linux; Android 8.1.0; Pixel Build/OPM6.171019.030.E1; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0.3729.186 Mobile Safari/537.36",
+    "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 8.1.0; Pixel Build/OPM6.171019.030.E1); APKPure/3.18.66 (Aegon)",
+    "Ual-Access-Businessid": "projecta",
+    "Ual-Access-Projecta": "{\"device_info\":{\"abis\":[\"x86\",\"x86_64\",\"arm64-v8a\",\"armeabi-v7a\",\"armeabi\"],\"android_id\":\"127ccad528a8e541\",\"brand\":\"Google\",\"country\":\"United States\",\"country_code\":\"US\",\"imei\":\"000000000000000\",\"language\":\"en-US\",\"manufacturer\":\"Google\",\"mode\":\"Pixel\",\"os_ver\":\"27\",\"os_ver_name\":\"8.1.0\",\"platform\":1,\"product\":\"Pixel\",\"screen_height\":1920,\"screen_width\":1080}}"
+    }
 
-    # Extract all versions download URLs
-    print("[+] Extracting download links, please wait...")
-    response = scraper.get(url + package_uri + "/versions").text
-    soup = BeautifulSoup(response, "html.parser")
+    uri = "/v3/get_app_his_version"
+    param = {"package_name": package_name}
 
-    versions_elements_div = soup.find("ul", class_="ver-wrap")
-    versions_elements_li = versions_elements_div.findAll("li", recursive=False)
-    href_list = [li.find("a", class_="ver_download_link")["href"] if li.find("a", class_="ver_download_link") else None for li in versions_elements_li]
+    apiScrapper.headers = headers
+
+    data = apiScrapper.get(url + uri, params=param)
+    version_list = data.json()["version_list"]
+    applications = []
 
     try:
-        with console.status("[bold green]Working on it...") as status:
-            for href_link in href_list:
-                
-                if href_link is not None:
-                    download_page = scraper.get(href_link).text
-                    if "Download Variant" in download_page:
-                        console.log("[yellow]Found multiple variants for " + href_link.split("/")[-1] + "[/yellow]")
-                        soup = BeautifulSoup(download_page, "html.parser")
-                        variants = soup.findAll("div", class_="table-cell down")
-                        variants_uris = [div.find('a')['href'] for div in variants]
-                        for variant in variants_uris:
-                            variant_download_page = scraper.get(url + variant).text
-                            soup = BeautifulSoup(variant_download_page, "html.parser")
-                            download_btn_element = soup.find("a", class_="download-start-btn")
-                            variant_download_url = download_btn_element['href']
-                            ver_download_urls.append(variant_download_url)
-                            # sleep(5)  # Keep it slow
-                    else:
-                        soup = BeautifulSoup(download_page, "html.parser")
-                        download_btn_element = soup.find("a", class_="download-start-btn")
-                        download_url = download_btn_element['href']
-                        ver_download_urls.append(download_url)
-                        # sleep(5)  # Keep it slow
-
-    except KeyboardInterrupt as e:
-        print(e)
-    except Exception as e:
-        if ver_download_urls is None:
-            exit("[-] Not found!")
+        if version_list:
+            for item in version_list:
+                package_name = item["package_name"]
+                version_code = item["version_code"]
+                version_name = item["version_name"]
+                url_seed = item["asset"]["url_seed"] # Using seed url for downloading app instead of "url".
+                type = item["asset"]["type"]
+                new_item = {
+                    'filename': package_name + "-" + version_name + "-versionCode_" + version_code + "." + type.lower(),
+                    'download_url': url_seed
+                }
+                if not any(entry["filename"] == new_item["filename"] for entry in applications):
+                    applications.append(new_item)
         else:
-            return list(set(ver_download_urls))
+            console.print("[red][-] Package Not Found.[/red]")
+            exit(1)
+    except KeyboardInterrupt as e:
+        exit(e)
+    except Exception as e:
+        exit(e)
     finally:
-        with open(filename, 'w') as fw:
-            for url in list(set(ver_download_urls)):
-                fw.write("%s\n" % url)
-    
-    return list(set(ver_download_urls)) # In some cases, it appears that the apkpure provides the same APK file for all variants (?)
+        data_to_save = json.dumps(applications)
+        open(downloadLinksJSON, 'w').write(data_to_save)
+
+    return applications
 
 
 def main():
@@ -99,74 +77,35 @@ def main():
     parser.add_argument('-nd', action='store_false', default=True, help="Disable downloading, only extract download links.")
     args = parser.parse_args()
 
-    # Init cloudflare scrapper.
-    global scraper, console
+    global apiScrapper, console, packageName, downloadLinksJSON
 
-    scraper = cfscrape.create_scraper(delay=10)
+    apiScrapper = requests.session()
     console = Console()
+    packageName = args.p
+    downloadLinksJSON = packageName + "-downloadlinks.json"
 
-    base_url = "https://apkpure.com"
-    package_name = args.p
+    console.print("[bold green][+] Target APK - " + packageName + "[/bold green]")
 
-    console.print("[bold green][+] Target APK - " + package_name + "[/bold green]")
-    package_uri = ""
-    
-    max_retries = 5  # Maximum number of retries
-    retry_count = 0
+    base_url = "https://tapi.pureapk.com"
+    bigData = []
 
-    while retry_count < max_retries:
-        try:
-            response = scraper.get(f"{base_url}/search?q=" + package_name).text
-        except KeyboardInterrupt:
-            exit()
-        except Exception as e:
-            exit(e)
+    if os.path.exists(downloadLinksJSON) and os.path.getsize(downloadLinksJSON) != 2:
+        console.print("[yellow][!] Download links file already exists.[/yellow]")
+        with open(downloadLinksJSON, 'r') as fr:
+            bigData = json.loads(fr.read())
+    else:
+        print("[+] Scrapping download links.")
+        with console.status("[bold green]Scrapping...") as status:
+            bigData = apkpureAPIScrapper(url=base_url, package_name=packageName)
 
-        if "Cloudflare Ray ID" in response:
-            print("Cloudflare protection could not be bypassed, trying again..")
-            sleep(5)  # Keep it slow
-            retry_count += 1
-            continue
 
-        elif "Cloudflare Ray ID" not in response:
-            soup = BeautifulSoup(response, 'html.parser')
-            element = soup.find('a', class_='first-info')
-
-            if element is not None:
-                package_uri = element['href']
-                if package_name not in package_uri:
-                    console.print("[bold red][-] Package Not Found![/bold red]")
-                    exit(2)
-
-                print("[+] Found package -", package_uri)
-                break
-
-        elif retry_count == max_retries:
-            print("[-] Failed to bypass Cloudflare protection.")
-            return
-        
-        else:
-            print("Package not found!")
-            return
-        
-    
-    links = extract_download_links(url=base_url, package_uri=package_uri, package_name=package_name)
-
-    def _download_apk(url):
+    def _download_apk(url, filename):
 
         current_directory = os.getcwd()
-        final_directory = os.path.join(current_directory, package_name)
+        final_directory = os.path.join(current_directory, packageName)
 
         if not os.path.exists(final_directory):
             os.makedirs(final_directory)
-
-        filename = url.split("/")[-1].replace("?", "-").replace("=", "_")
-
-        # Check if file is APK or XAPK bundle.
-        if "XAPK" in url:
-            filename = filename + ".xapk"
-        else:
-            filename = filename + ".apk"
 
         absoluteFile = os.path.join(final_directory, filename)
 
@@ -175,7 +114,7 @@ def main():
             return False
 
         print("... " + filename + " is downloading, please wait...")
-        file = scraper.get(url)
+        file = apiScrapper.get(url)
         open(absoluteFile, "wb").write(file.content)
 
         return True
@@ -185,8 +124,8 @@ def main():
 
     if args.nd:
         try:
-            with console.status("[bold green]Working on it...") as status:
-                download_tasks = [executor.submit(_download_apk, link) for link in links if link is not None]
+            with console.status("[bold green]Downloading in process...") as status:
+                download_tasks = [executor.submit(_download_apk, data["download_url"], data["filename"]) for data in bigData]
                 concurrent.futures.wait(download_tasks)
                 any_file_downloaded = False
                 for task in concurrent.futures.as_completed(download_tasks):
@@ -197,8 +136,8 @@ def main():
                     print("[!] Nothing new!")
 
         except KeyboardInterrupt:
-            print("[!] Keyboard interruption detected. we'll shutdown execution after running threads are finished.")
-            sleep(2)
+            console.print("[yellow][!] Keyboard interruption detected. we'll shutdown execution after running threads are finished.[/yellow]")
+            wait(2)
             print("... Promise!")
             executor.shutdown(cancel_futures=True)
 
