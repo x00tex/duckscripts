@@ -4,11 +4,12 @@
 Author :- @p00rduck (Poorduck)
 Date :- 2023-06-20
 
-Update :- 2023-07-10
-    - apkID output saved in txt file
-    - added xnlinkfinder in apkflow
+Update :- 2023-07-12
+    - apkID output saved in json file
+    - added xnlinkfinder in apkflow (Only APK files support)
+    - bug fix
 
-Version: v0.0.2-Beta
+Version: v0.0.3-Beta
 Description :- Download android APK(s) from APKPure and and run through APKLeaks.
 
 Requirements :-
@@ -94,7 +95,7 @@ def init_script__():
     if not_found_binaries:
         print("[-] Binaries not found:", ", ".join(not_found_binaries))
         if "xnlinkfinder" in not_found_binaries:
-            print("... Original xnLinkFinder does not installed properly with pip and script doesn't support scriptpath as input\n... Try installing \"xnlinkfinder\" from fork,  -\n\n      pip install git+https://github.com/x00tex/xnLinkFinder@pipx-update")
+            print("... Original xnLinkFinder does not install properly with pip and this script doesn't support \".py\" as input\n... Try installing \"xnlinkfinder\" from fork,  -\n\n      pip install git+https://github.com/x00tex/xnLinkFinder@pipx-update")
         exit()
 
 init_script__()
@@ -125,12 +126,11 @@ from apkid.apkid import Scanner, Options  # https://github.com/rednaga/APKiD
 
 
 class APKLeaksRunner:
-    def __init__(self, subArgs, jadx_output: str = None):
+    def __init__(self, subArgs):
         self.args = subArgs
         self.init = None
-        self.outdir = jadx_output
 
-    def _run(self, inputarg, outputarg):
+    def _run(self, inputarg, outputarg, jadx_output: str = None):
         self.args.file = inputarg
         self.args.output = outputarg
         self.init = APKLeaks(self.args)
@@ -143,9 +143,9 @@ class APKLeaksRunner:
                 try:
                     self.init.integrity()
 
-                    if self.outdir:
+                    if jadx_output:
                         try:
-                            self.init.decompile(save_dis=self.outdir)
+                            self.init.decompile(save_dis=jadx_output)
                         except TypeError:
                             self.init.decompile()
                     else:
@@ -158,14 +158,14 @@ class APKLeaksRunner:
         finally:
             sys.stdout = original_stdout  # Restore sys.stdout to its original value
 
-    def apkleaks(self, apkfile: str, ftype: str):
-        output_file = f"{self.outdir}/apkleaks.txt"
+    def apkleaks(self, apkfile: str, ftype: str, dest: str, xnl: bool):
+        output_file = f"{dest}/apkleaks.txt"
 
         if os.path.exists(output_file):
             console.log("... [yellow]APKLeaks[/yellow] :- [bold yellow]skipping[/bold yellow]")
             return
 
-        if "Zip archive data" in ftype:
+        if ftype.upper() == 'XAPK' or "Zip archive data" in ftype:
             with tempfile.TemporaryDirectory() as temp_dir:
 
                 # Extract APK files form XAPK.
@@ -199,7 +199,10 @@ class APKLeaksRunner:
 
         else:
             try:
-                self._run(inputarg=apkfile, outputarg=output_file)
+                if xnl:
+                    self._run(inputarg=apkfile, outputarg=output_file, jadx_output=dest)
+                else:
+                    self._run(inputarg=apkfile, outputarg=output_file)
             except Exception as e:
                 return False
 
@@ -212,7 +215,7 @@ class APKiDRunner:
     def _build_options(self):
         return Options(
             verbose=False,  # log debug messages
-            json=False,  # output scan results in JSON format
+            json=True,  # output scan results in JSON format
             output_dir=None,  # write individual results here (implies --json)
             include_types=False,  # include file type info for matched files
             timeout=30,  # Yara scan timeout (in seconds)
@@ -226,7 +229,7 @@ class APKiDRunner:
 
         global console
 
-        output_file = f"{out_dir}/apkid.txt"
+        output_file = f"{out_dir}/apkid.json"
 
         if os.path.exists(output_file):
             console.log("... [yellow]ApkID[/yellow] :- [bold yellow]skipping[/bold yellow]")
@@ -245,33 +248,29 @@ class APKiDRunner:
 
             # Get the content from the dummy_stream
             output = dummy_stream.getvalue()
-            lines = output.split('\n')
             printout = False
             if printout:
                 console.log("... [yellow]ApkID[/yellow] :-", apkfile.split("/")[-1])
-                for line in lines:
-                    console.log(line)
+                console.log(output)
             else:
-                with open(output_file, "w") as f:
-                    f.writelines(lines)
+                with open(output_file, "w") as file:
+                    json.dump(json.loads(output), file, indent=2)
 
         finally:
             sys.stdout = original_stdout  # Restore sys.stdout to its original value
 
 
 class XNLRunner:
-    def __init__(self, apkfile: str, package_name: str, xnl_out: str, jadx_out: str, jadx_path: str = shutil.which('jadx')):
+    def __init__(self, apkfile: str, dest: str, jadx_path: str = shutil.which('jadx')):
         self.apk = apkfile
         self.jadx = jadx_path
-        self.jadxdir = jadx_out  # tempfile.mkdtemp()
-        self.xnlout = xnl_out
-        self.packagedir = package_name.replace(".", "/")
+        self.output_dir = dest  # tempfile.mkdtemp()
         self.xnl = "xnlinkfinder"
 
-    # This function is taken form "apkleaks"
+    # This function is taken from "apkleaks"
     def _decompile(self):
         disarg = "--threads-count 1"
-        args = [self.jadx, self.apk, "-d", self.jadxdir]
+        args = [self.jadx, self.apk, "-d", self.output_dir]
         try:
             args.extend(re.split(r"\s|=", disarg))
         except Exception:
@@ -281,19 +280,28 @@ class XNLRunner:
         # os.system(comm)
         subprocess.call(f"{comm} > /dev/null 2>&1", shell=True)
 
-    def run(self, run_jadx: bool = False):
-        output_file = f"{self.xnlout}/xnlinkfinder.txt"
+    def _fix_package_name(self, string):
+        # Check if the string ends with ".com" or ".io" or ".org"
+        if re.match(r'\w+\.(com|io|org)$', string):
+            parts = re.match(r'(\w+)\.(\w+)', string)
+            if parts:
+                first_word = parts.group(1)
+                domain = parts.group(2)
+                converted_string = f"{domain}.{first_word}"
+                return converted_string
+        return string
+
+    def run(self, package_name: str):
+        package_path = self._fix_package_name(package_name).replace(".", "/")
+        output_file = f"{self.output_dir}/xnlinkfinder.txt"
         if os.path.exists(output_file):
             console.log("... [yellow]xnLinkFinder[/yellow] :- [bold yellow]skipping[/bold yellow]")
             return
-        
-        if run_jadx:
+
+        if not os.path.exists(f"{self.output_dir}/sources"):  # "jadx Decompiled Source Not Found!"
             self._decompile()
 
-        if not os.path.exists(f"{self.jadxdir}/sources"):  # "jadx Decompiled Source Not Found!"
-            self._decompile() 
-
-        args = [self.xnl, "-i", f"{self.jadxdir}/sources/{self.packagedir}/", "-nb", "-ascii-only", "-o", output_file, "-op", "/dev/null"]
+        args = [self.xnl, "-i", f"{self.output_dir}/sources/{package_path}/", "-nb", "-ascii-only", "-o", output_file, "-op", "/dev/null"]
         comm = "%s" % (" ".join(quote(arg) for arg in args))
         comm = comm.replace("\'","\"")
         # os.system(comm)
@@ -379,15 +387,17 @@ def apkpureWebScrapper(url, package_name):
                         variant_download_url = download_btn_element['href']
                         # In some cases, it appears that the apkpure provides the same APK file for all variants (?)
                         if not any(entry["download_url"] == variant_download_url for entry in applications):
-                            veriant_version = soup.find('span', class_='info-sdk').find('span').text
-                            veriant_name = variant_download_url.split("/")[-1].replace("?", "-").replace("=", "_")
-                            app_name = re.sub(r'^(.*?)(-versionCode_\d+)$', fr'\g<1>-{veriant_version}\g<2>', veriant_name)
+                            variant_version = soup.find('span', class_='info-sdk').find('span').text
+                            variant_name = variant_download_url.split("/")[-1].replace("?", "-").replace("=", "_")
+                            app_name = re.sub(r'^(.*?)(-versionCode_\d+)$', fr'\g<1>-{variant_version}\g<2>', variant_name)
                             if "XAPK" in variant_download_url:
                                 app_name = app_name + ".xapk"
                             else:
                                 app_name = app_name + ".apk"
 
-                            applications.append({'filename': app_name, 'download_url': variant_download_url, 'version': veriant_version})
+                            applications.append({'filename': app_name,
+                                                 'download_url': variant_download_url,
+                                                 'version': variant_version})
                             # wait(5)  # Keep it slow
                 else:
                     soup = BeautifulSoup(download_page, "html.parser")
@@ -403,7 +413,9 @@ def apkpureWebScrapper(url, package_name):
                         else:
                             app_name = app_name + ".apk"
 
-                        applications.append({'filename': app_name, 'download_url': download_url, 'version': version})
+                        applications.append({'filename': app_name,
+                                             'download_url': download_url,
+                                             'version': version})
                         # wait(5)  # Keep it slow
 
     except KeyboardInterrupt as e:
@@ -411,8 +423,8 @@ def apkpureWebScrapper(url, package_name):
     except Exception as e:
         exit(e)
     finally:
-        data_to_save = json.dumps(applications)
-        open(downloadLinksJSON, 'w').write(data_to_save)
+        with open(downloadLinksJSON, 'w') as file:
+            json.dump({"scrapper": "WEB", "data": applications}, file, indent=2)
     
     return applications
 
@@ -444,11 +456,15 @@ def apkpureAPIScrapper(url, package_name):
                 version_code = item["version_code"]
                 version_name = item["version_name"]
                 url_seed = item["asset"]["url_seed"] # Using seed url for downloading app instead of "url".
-                type = item["asset"]["type"]
+                type_ = item["asset"]["type"]
+                size_ = item["asset"]["size"]
                 new_item = {
-                    'filename': package_name + "-" + version_name + "-versionCode_" + version_code + "." + type.lower(),
+                    'package_name': package_name,
+                    'filename': package_name + "-" + version_name + "-versionCode_" + version_code + "." + type_.lower(),
                     'download_url': url_seed,
-                    'version': version_name
+                    'version': version_name,
+                    'file_type': type_,
+                    'file_size': round(int(size_) / 1048576, 3)
                 }
                 if not any(entry["filename"] == new_item["filename"] for entry in applications):
                     applications.append(new_item)
@@ -460,8 +476,8 @@ def apkpureAPIScrapper(url, package_name):
     except Exception as e:
         exit(e)
     finally:
-        data_to_save = json.dumps(applications)
-        open(downloadLinksJSON, 'w').write(data_to_save)
+        with open(downloadLinksJSON, 'w') as file:
+            json.dump({"scrapper": "API", "data": applications}, file, indent=2)
 
     return applications
 
@@ -514,7 +530,7 @@ def main():
 
     console.print("[bold green][+] Target APK - " + packageName + "[/bold green]")
 
-    api_url = "https://tapi.pureapk.com"
+    api_url = "https://taapi.pureapk.com"
     web_url = "https://apkpure.com"
     url = ""
     scrapper = ""
@@ -524,7 +540,9 @@ def main():
     if os.path.exists(downloadLinksJSON) and os.path.getsize(downloadLinksJSON) != 2:
         console.print("[yellow][!] Download links file already exists.[/yellow]")
         with open(downloadLinksJSON, 'r') as fr:
-            bigData = json.loads(fr.read())
+            loaded_data = json.loads(fr.read())
+        bigData = loaded_data.get("data")
+        scrapper = loaded_data.get("scrapper")
     else:
         print("[+] Scrapping download links.")
         with console.status("[bold green]Scrapping...") as status:
@@ -559,12 +577,19 @@ def main():
             except KeyboardInterrupt:
                 exit(0)
 
-    def _APKFLOW(url: str, filename: str, version: str):
+    def _APKFLOW(data: dict):
 
-        console.print("[+] Working on :-", "[yellow]"+filename+"[/yellow]")
+        package_ = data.get("package_name") or packageName
+        url = data.get("download_url")
+        filename = data.get("filename")
+        version = data.get("version")
+        file_type = data.get("file_type")
+        file_size = data.get("file_size") or "[bold yellow]UNDEFINED[/bold yellow]"
+
+        console.print(f"[+] Working on :-[yellow] {filename}: {file_size}[/yellow]")
 
         current_directory = os.getcwd()
-        final_directory = os.path.join(current_directory, packageName, version)
+        final_directory = os.path.join(current_directory, package_, version)
 
         if not os.path.exists(final_directory):
             os.makedirs(final_directory)
@@ -575,52 +600,47 @@ def main():
             console.log("... " + filename + " [yellow] Already Exist.[/yellow]")
         else:
             with console.status("[bold green]Downloading...") as status:
+                file = None
 
                 if scrapper == "API":
                     file = _API_SCRAPPER.get(url)
                 elif scrapper == "WEB":
                     file = _WEB_SCRAPPER.get(url)
 
-                if file.status_code != 200:
-                    console.print(f"[red][-] File Not Found, Status Code - {file.status_code}[/red]")
+                if file is None:
+                    console.log("[red]... Failed to Download![/red]")
+                    return
+                if file is not None and file.status_code != 200:
+                    console.log(f"[red]... File Not Found, Status Code - {file.status_code}[/red]")
                     return
 
                 open(absoluteFile, "wb").write(file.content)
 
-        file_type = magic.from_file(absoluteFile)
+        file_type = magic.from_file(absoluteFile) if file_type is None else file_type
 
         if args.apkid:
             with console.status("[bold green]Running apkid...") as status:
                 apkidrunner = APKiDRunner()
                 apkidrunner.run(apkfile=absoluteFile, out_dir=final_directory)
 
-        if args.xnl and args.tool:
-            jadx_out_path = final_directory
-            xnl_jadx = False
-        else:
-            jadx_out_path = None
-            xnl_jadx = True
-
         if args.tool == 'apkleaks':
             with console.status("[bold green]Running apkleaks...") as status:
                 wait(1)
-                apkleaksrunner = APKLeaksRunner(subArgs=args, jadx_output=jadx_out_path)
-                apkleaksrunner.apkleaks(apkfile=absoluteFile, ftype=file_type)
+                apkleaksrunner = APKLeaksRunner(subArgs=args)
+                apkleaksrunner.apkleaks(apkfile=absoluteFile, ftype=file_type, dest=final_directory, xnl=args.xnl)
 
         if args.xnl:
             with console.status("[bold green]Running xnLinkFinder...") as status:
                 xnlrunner = XNLRunner(apkfile=absoluteFile,
-                                    jadx_out=final_directory,
-                                    xnl_out=final_directory,
-                                    package_name=packageName)
-                xnlrunner.run(run_jadx=xnl_jadx)
+                                    dest=final_directory)
+                xnlrunner.run(package_name=package_)
 
         return True
 
     if args.nd:
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)  # DO NOT CHANGE THE WORKERS VALUE.
         try:
-            download_tasks = [executor.submit(_APKFLOW, data["download_url"], data["filename"], data["version"]) for data in bigData]
+            download_tasks = [executor.submit(_APKFLOW, data) for data in bigData]
             concurrent.futures.wait(download_tasks)
             any_file_downloaded = False
             for task in concurrent.futures.as_completed(download_tasks):
