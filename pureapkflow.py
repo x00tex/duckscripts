@@ -261,6 +261,11 @@ class APKiDRunner:
 
 
 class XNLRunner:
+
+    """
+    NOTE - Not fully implemented!
+    """
+
     def __init__(self, apkfile: str, dest: str, jadx_path: str = shutil.which('jadx')):
         self.apk = apkfile
         self.jadx = jadx_path
@@ -488,7 +493,7 @@ def main():
     parser = argparse.ArgumentParser(description='Download all versions of an Android mobile application from apkpure.com')
     parser.add_argument('-nd', action='store_false', default=True, help="Disable downloading, only extract download links.")
     parser.add_argument('--apkid', action='store_true', default=False, help="Run apkID on every app.")
-    parser.add_argument('--xnl', action='store_true', default=False, help="Run xnLinkFinder on every app on jadx source.")
+    parser.add_argument('--xnl', action='store_true', default=False, help="Run xnLinkFinder on every app on jadx source. [EXPERIMENTAL]")
 
     required = parser.add_argument_group('required arguments')
     required.add_argument('-p', required=True, metavar="packagename", help="example: com.twitter.android")
@@ -530,7 +535,7 @@ def main():
 
     console.print("[bold green][+] Target APK - " + packageName + "[/bold green]")
 
-    api_url = "https://taapi.pureapk.com"
+    api_url = "https://tapi.pureapk.com"
     web_url = "https://apkpure.com"
     url = ""
     scrapper = ""

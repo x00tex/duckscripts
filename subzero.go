@@ -228,7 +228,7 @@ func subDomains(domainName string, orgName string) {
 	// API keys
 	virustotal := ""
 	securitytrails := ""
-	gitlab := ""
+	// gitlab := ""
 
 	// Scrapping chaosDB :TEST-OK:
 	fmt.Printf("\033[0;32m[+] chaosDB\033[0m\n")
@@ -362,23 +362,23 @@ func subDomains(domainName string, orgName string) {
 	}
 
 	// Running gitlab-subdomains Command :TEST-OK:
-	fmt.Printf("\033[0;32m[+] gitlab-subdomains\033[0m\n")
-	setEnv("GITLAB_TOKEN", gitlab)
-	cmd := exec.Command("gitlab-subdomains", "-d", domainName)
-	output, err := cmd.Output()
-	if err != nil {
-		log.Fatal(err)
-	}
+	// fmt.Printf("\033[0;32m[+] gitlab-subdomains\033[0m\n")
+	// setEnv("GITLAB_TOKEN", gitlab)
+	// cmd := exec.Command("gitlab-subdomains", "-d", domainName)
+	// output, err := cmd.Output()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	err = ioutil.WriteFile("gitlab-output.txt", output, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// err = ioutil.WriteFile("gitlab-output.txt", output, 0644)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	err = os.Remove(fmt.Sprintf("%s.txt", domainName))
-	if err != nil {
-		log.Fatal(err)
-	}
+	// err = os.Remove(fmt.Sprintf("%s.txt", domainName))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	// Scrapping jldc.me :TEST-OK:
 	fmt.Printf("\033[0;32m[+] jldc.me\033[0m\n")
