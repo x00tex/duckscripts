@@ -33,13 +33,13 @@ Known error and possible fixes :-
 
 Quality Tweaks :-
 
-- Suppress jadx output from "apkleaks==2.6.1" while it is decompile().
+- Suppress "jadx" output from "apkleaks==2.6.1" while it is decompile().
   - find "/apkleaks/apkleaks.py" location
     - Try this command - python -c "import site, sys; print('\n'.join(p for p in sys.path if p.endswith('site-packages')))"
   - Import "subprocess" in /apkleaks/apkleaks.py, and
   - Replace `os.system(comm)` in decompile() function with `subprocess.call(f"{comm} > /dev/null 2>&1", shell=True)`.
 
-- If you want to run xnl and apkleaks together, by default it will run jadx twice, to fix this, replace decompile() func from /apkleaks/apkleaks.py -
+- If you want to run xnl and apkleaks together, by default it will run "jadx" twice, to fix this, replace decompile() func from /apkleaks/apkleaks.py -
 
 	def decompile(self, save_dis: str = None):
 		util.writeln("** Decompiling APK...", col.OKBLUE)
@@ -306,6 +306,10 @@ class XNLRunner:
         if not os.path.exists(f"{self.output_dir}/sources"):  # "jadx Decompiled Source Not Found!"
             self._decompile()
 
+        if not os.path.exists(f"{self.output_dir}/sources/{package_path}/"):
+            console.log("... [yellow]xnLinkFinder[/yellow] :- [bold yellow]skipping[/bold yellow]")
+            return
+
         args = [self.xnl, "-i", f"{self.output_dir}/sources/{package_path}/", "-nb", "-ascii-only", "-o", output_file, "-op", "/dev/null"]
         comm = "%s" % (" ".join(quote(arg) for arg in args))
         comm = comm.replace("\'","\"")
@@ -504,8 +508,7 @@ def main():
     apkleaks_parser.add_argument("-f", "--file", type=str, required=False, help=argparse.SUPPRESS)
     apkleaks_parser.add_argument("-o", "--output", type=str, required=False, help=argparse.SUPPRESS)
     apkleaks_parser.add_argument("-p", "--pattern", help="Path to custom patterns JSON", type=str, required=False)
-    apkleaks_parser.add_argument("-a", "--args", help="Disassembler arguments (e.g. \"--threads-count 5 --deobf\"), (default threads-count set to 1)",
-                                 type=str, required=False, default="--threads-count 1")
+    apkleaks_parser.add_argument("-a", "--args", help="Disassembler arguments (e.g. \"--threads-count 5 --deobf\"), (default threads-count set to 1)", type=str, required=False, default="--threads-count 1")
     apkleaks_parser.add_argument("--json", help="Save as JSON format", required=False, action="store_true")
 
     args = parser.parse_args()
@@ -589,7 +592,7 @@ def main():
         filename = data.get("filename")
         version = data.get("version")
         file_type = data.get("file_type")
-        file_size = data.get("file_size") or "[bold yellow]UNDEFINED[/bold yellow]"
+        file_size = data.get("file_size") or "[bold red]UNDEFINED[/bold red]"
 
         console.print(f"[+] Working on :-[yellow] {filename}: {file_size}[/yellow]")
 
@@ -636,8 +639,7 @@ def main():
 
         if args.xnl:
             with console.status("[bold green]Running xnLinkFinder...") as status:
-                xnlrunner = XNLRunner(apkfile=absoluteFile,
-                                    dest=final_directory)
+                xnlrunner = XNLRunner(apkfile=absoluteFile, dest=final_directory)
                 xnlrunner.run(package_name=package_)
 
         return True

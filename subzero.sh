@@ -4,7 +4,7 @@
 #                                                                                                           #
 # Author: @p00rduck                                                                                         #
 # Date: 2023-05-26                                                                                          #
-# Version: v0.0.1-Alpha                                                                                     #
+# Version: v0.0.2-Alpha                                                                                     #
 # Description: Bash script for subdomain enumeration using variety of tools -                               #
 #                 chaosDB, Findomain, Subfinder, Amass, gitlab-subdomains, shuffledns, jldc.me, dnsx, httpx #
 #                                                                                                           #
@@ -13,6 +13,7 @@
 #############################################################################################################
 
 
+# Install all required tools
 setup() {
   sudo apt install curl wget jq amass lolcat figlet golang
   sudo wget https://raw.githubusercontent.com/janmasarik/resolvers/master/resolvers.txt -O /usr/share/wordlists/subzero-resolvers.txt
@@ -29,6 +30,7 @@ setup() {
 
 }
 
+# HELP menu
 usage() {
   echo "Usage: $0 [OPTIONS]"
   echo "Options:"
@@ -101,13 +103,13 @@ printf "${green}%s${nc}\n" "$divider"
 printf "${yellow}[+] Organization:${nc} %s\n${yellow}[+] Domain:${nc} %s\n${yellow}[+] Wordlist:${nc} %s\n${yellow}[+] ASN:${nc} %s\n" "$orgName" "$domainName" "$sublist" "$asn"
 printf "${green}%s${nc}\n" "$divider"
 
+# main function
 subDomains() {
 
   # API keys required by different tools for finding subdomains
-  local virustotal=""
-  local securitytrails=""
-  local gitlab=""
-  
+  local virustotal=$(cat ~/.config/subzero/config.json | jq '.API.virustotal')
+  local securitytrails=$(cat ~/.config/subzero/config.json | jq '.API.securitytrails')
+  local gitlab=$(cat ~/.config/subzero/config.json | jq '.API.gitlab')
   local dnsResolver="/usr/share/wordlists/subzero-resolvers.txt"
 
   printf "${green}[+] chaosDB${nc}\n"

@@ -5,7 +5,7 @@ package main
 Author: @p00rduck
 Date: 2023-05-26
 Version: v0.0.2-Beta
-Description: Golang implementation of "subzero.sh" bash script.
+Description: Golang implementation [to learn golang] of "subzero.sh" bash script.
 
 Usage: go run subzero.go -h
 
@@ -114,7 +114,7 @@ func usage() {
 	fmt.Println("  -w wordlist                   Custom wordlist for DNS based subdomain Brute-force")
 	fmt.Println("  -a ASN                        ASN numbers comma separated")
 	fmt.Println("  -httpx                        Run httpx probe over found subdomains")
-	fmt.Println("  -setup                        Install necessary tools")
+	fmt.Println("  -setup                        Install necessary tools. [NOT TESTED]")
 	fmt.Println("  -h                            Print Help")
 }
 
@@ -228,7 +228,7 @@ func subDomains(domainName string, orgName string) {
 	// API keys
 	virustotal := ""
 	securitytrails := ""
-	// gitlab := ""
+	gitlab := ""
 
 	// Scrapping chaosDB :TEST-OK:
 	fmt.Printf("\033[0;32m[+] chaosDB\033[0m\n")
@@ -362,23 +362,23 @@ func subDomains(domainName string, orgName string) {
 	}
 
 	// Running gitlab-subdomains Command :TEST-OK:
-	// fmt.Printf("\033[0;32m[+] gitlab-subdomains\033[0m\n")
-	// setEnv("GITLAB_TOKEN", gitlab)
-	// cmd := exec.Command("gitlab-subdomains", "-d", domainName)
-	// output, err := cmd.Output()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	fmt.Printf("\033[0;32m[+] gitlab-subdomains\033[0m\n")
+	setEnv("GITLAB_TOKEN", gitlab)
+	cmd := exec.Command("gitlab-subdomains", "-d", domainName)
+	output, err := cmd.Output()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// err = ioutil.WriteFile("gitlab-output.txt", output, 0644)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	err = ioutil.WriteFile("gitlab-output.txt", output, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// err = os.Remove(fmt.Sprintf("%s.txt", domainName))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	err = os.Remove(fmt.Sprintf("%s.txt", domainName))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Scrapping jldc.me :TEST-OK:
 	fmt.Printf("\033[0;32m[+] jldc.me\033[0m\n")

@@ -18,6 +18,7 @@ from rich.console import Console
 import concurrent.futures
 import requests
 import json
+import pathlib
 
 
 def apkpureAPIScrapper(url, package_name):
@@ -111,6 +112,11 @@ def main():
 
         if os.path.exists(absoluteFile):
             console.print("[yellow]... " + filename + " is already exists.[/yellow]")
+            return False
+
+        # Do not download "xapk" files. 
+        if pathlib.Path(filename).suffix == ".xapk":
+            console.print("[yellow]... Skipping " + filename + " [/yellow]")
             return False
 
         print("... " + filename + " is downloading, please wait...")
